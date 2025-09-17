@@ -7,6 +7,7 @@ import android.util.Log
 import androidx.compose.runtime.MutableState
 import androidx.compose.runtime.mutableFloatStateOf
 import androidx.compose.runtime.mutableIntStateOf
+import com.k2fsa.sherpa.onnx.tts.engine.PronunciationDictionary
 import com.k2fsa.sherpa.onnx.OfflineTts
 import com.k2fsa.sherpa.onnx.getOfflineTtsConfig
 import java.io.File
@@ -15,6 +16,8 @@ import java.io.IOException
 
 object TtsEngine {
     var tts: OfflineTts? = null
+
+    private var pronunciationDictionary: PronunciationDictionary? = null
 
     // https://en.wikipedia.org/wiki/ISO_639-3
     // Example:
@@ -189,7 +192,15 @@ object TtsEngine {
         if (tts == null) {
             initTts(context)
         }
+        if (pronunciationDictionary == null) {
+            pronunciationDictionary = PronunciationDictionary(context)
+        }
     }
+    fun processTextWithDictionary(input: String): String {
+        return pronunciationDictionary?.processText(input) ?: input
+    }
+
+    fun getPronunciationDictionary(): PronunciationDictionary? = pronunciationDictionary
 
     private fun initTts(context: Context) {
         assets = context.assets

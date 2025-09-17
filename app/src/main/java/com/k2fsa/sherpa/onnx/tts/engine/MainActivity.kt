@@ -38,6 +38,9 @@ import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
+import androidx.compose.runtime.LaunchedEffect
+import androidx.compose.runtime.mutableStateListOf
+import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.text.input.KeyboardType
 import androidx.compose.ui.unit.dp
@@ -90,6 +93,91 @@ class MainActivity : ComponentActivity() {
                     }) {
                         Box(modifier = Modifier.padding(it)) {
                             Column(modifier = Modifier.padding(16.dp)) {
+                                // --- Pronunciation Dictionary UI ---
+                                val dict = TtsEngine.getPronunciationDictionary()
+                                val coroutineScope = rememberCoroutineScope()
+                                val dictEntries = remember { mutableStateListOf<Pair<String, String>>() }
+
+                                fun reloadDictEntries() {
+                                    dictEntries.clear()
+                                    dictEntries.addAll(dict?.getAll()?.toList() ?: emptyList())
+                                }
+
+                                LaunchedEffect(Unit) {
+                                    reloadDictEntries()
+                                }
+
+                                Text("Pronunciation Dictionary", style = MaterialTheme.typography.titleMedium)
+                                Column(modifier = Modifier.padding(vertical = 8.dp)) {
+                                    if (dictEntries.isEmpty()) {
+                                        Text("No entries yet.")
+                                    } else {
+                                        dictEntries.forEachIndexed { idx, (key, value) ->
+                                            var editValue by remember(key) { mutableStateOf(value) }
+                                            var editing by remember(key) { mutableStateOf(false) }
+                                            Row(modifier = Modifier.fillMaxWidth().padding(vertical = 2.dp)) {
+                                                Text(key, modifier = Modifier.weight(0.7f))
+                                                if (editing) {
+                                                    OutlinedTextField(
+                                                        value = editValue,
+                                                        onValueChange = { editValue = it },
+                                                        modifier = Modifier.weight(1f)
+                                                    )
+                                                    Button(onClick = {
+                                                        dict?.addOrUpdate(key, editValue)
+                                                        reloadDictEntries()
+                                                        editing = false
+                                                    }, modifier = Modifier.padding(start = 4.dp)) {
+                                                        Text("Save")
+                                                    }
+                                                } else {
+                                                    Text(value, modifier = Modifier.weight(1f))
+                                                    Button(onClick = { editing = true }, modifier = Modifier.padding(start = 4.dp)) {
+                                                        Text("Edit")
+                                                    }
+                                                }
+                                                Button(onClick = {
+                                                    dict?.remove(key)
+                                                    reloadDictEntries()
+                                                }, modifier = Modifier.padding(start = 4.dp)) {
+                                                    Text("Delete")
+                                                }
+                                            }
+                                        }
+                                    }
+                                }
+
+                                // Add new entry UI
+                                var newKey by remember { mutableStateOf("") }
+                                var newValue by remember { mutableStateOf("") }
+                                Row(modifier = Modifier.fillMaxWidth().padding(vertical = 4.dp)) {
+                                    OutlinedTextField(
+                                        value = newKey,
+                                        onValueChange = { newKey = it },
+                                        label = { Text("Word") },
+                                        modifier = Modifier.weight(1f).padding(end = 4.dp)
+                                    )
+                                    OutlinedTextField(
+                                        value = newValue,
+                                        onValueChange = { newValue = it },
+                                        label = { Text("Pronunciation") },
+                                        modifier = Modifier.weight(1f).padding(end = 4.dp)
+                                    )
+                                    Button(
+                                        onClick = {
+                                            if (newKey.isNotBlank() && newValue.isNotBlank()) {
+                                                dict?.addOrUpdate(newKey.trim(), newValue.trim())
+                                                reloadDictEntries()
+                                                newKey = ""
+                                                newValue = ""
+                                            }
+                                        },
+                                        enabled = newKey.isNotBlank() && newValue.isNotBlank()
+                                    ) {
+                                        Text("Add")
+                                    }
+                                }
+                                // --- End Pronunciation Dictionary UI ---
                                 Column {
                                     Text("Speed " + String.format("%.1f", TtsEngine.speed))
                                     Slider(
@@ -199,9 +287,12 @@ class MainActivity : ComponentActivity() {
                                                     val timeSource = TimeSource.Monotonic
                                                     val startTime = timeSource.markNow()
 
+                                                    // Process text with pronunciation dictionary
+                                                    val processedText = TtsEngine.processTextWithDictionary(testText)
+
                                                     val audio =
                                                         TtsEngine.tts!!.generateWithCallback(
-                                                            text = testText,
+                                                            text = processedText,
                                                             sid = TtsEngine.speakerId,
                                                             speed = TtsEngine.speed,
                                                             callback = ::callback,
