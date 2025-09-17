@@ -129,6 +129,9 @@ class TtsService : TextToSpeechService() {
             return
         }
 
+        // Apply pronunciation dictionary swapping here
+        val processedText = TtsEngine.processTextWithDictionary(text)
+
         val ttsCallback: (FloatArray) -> Int = fun(floatSamples): Int {
             // convert FloatArray to ByteArray
             val samples = floatArrayToByteArray(floatSamples)
@@ -145,9 +148,9 @@ class TtsService : TextToSpeechService() {
             return 1
         }
 
-        Log.i(TAG, "text: $text")
+        Log.i(TAG, "processed text: $processedText")
         tts.generateWithCallback(
-            text = text,
+            text = processedText,
             sid = TtsEngine.speakerId,
             speed = TtsEngine.speed,
             callback = ttsCallback,
